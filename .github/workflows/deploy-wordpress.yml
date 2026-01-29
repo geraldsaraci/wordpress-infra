@@ -1,0 +1,46 @@
+name: Deploy WordPress Stack
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install rsync
+        run: sudo apt-get update && sudo apt-get install -y rsync
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Sync wordpress stack to server
+        run: |
+          rsync -az --delete -e "ssh -i ~/.ssh/id_ed25519" \
+            wordpress-stack/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/srv/wordpress-stack/
+
+      - name: Write .env on server from GitHub Secrets
+        run: |
+          ssh -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          cat > /srv/wordpress-stack/.env << ENV
+          MYSQL_DATABASE=wordpress
+          MYSQL_USER=wpuser
+          MYSQL_PASSWORD=${{ secrets.WP_MYSQL_PASSWORD }}
+          MYSQL_ROOT_PASSWORD=${{ secrets.WP_MYSQL_ROOT_PASSWORD }}
+          WP_URL=http://23.88.107.201:8083
+          ENV
+          EOF
+
+      - name: Deploy with Docker Compose
+        run: |
+          ssh -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd /srv/wordpress-stack && docker compose pull && docker compose up -d"
+
