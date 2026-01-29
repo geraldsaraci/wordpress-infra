@@ -24,13 +24,19 @@ jobs:
 
       - name: Sync wordpress stack to server
         run: |
-          rsync -az --delete -e "ssh -i ~/.ssh/id_ed25519" \
-            wordpress-stack/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/srv/wordpress-stack/
+          rsync -az --delete \
+  --exclude '.env' \
+  --exclude 'db_data/' \
+  --exclude 'wp_data/' \
+  -e "ssh -i ~/.ssh/id_ed25519" \
+  wordpress-stack/ \
+  ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/deploy/wordpress-stack/
+
 
       - name: Write .env on server from GitHub Secrets
         run: |
           ssh -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-          cat > /srv/wordpress-stack/.env << ENV
+          cat > /home/deploy/wordpress-stack/.env << ENV
           MYSQL_DATABASE=wordpress
           MYSQL_USER=wpuser
           MYSQL_PASSWORD=${{ secrets.WP_MYSQL_PASSWORD }}
@@ -42,5 +48,5 @@ jobs:
       - name: Deploy with Docker Compose
         run: |
           ssh -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "cd /srv/wordpress-stack && docker compose pull && docker compose up -d"
+            "cd /home/deploy/wordpress-stack && docker compose pull && docker compose up -d"
 

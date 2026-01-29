@@ -2,3 +2,6 @@
 .DS_Store
 
 
+
+wordpress-stack/db_data/
+wordpress-stack/wp_data/
